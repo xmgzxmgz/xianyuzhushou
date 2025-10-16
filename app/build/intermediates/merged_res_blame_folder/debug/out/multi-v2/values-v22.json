@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.xianyuzhushou.app-mergeDebugResources-31:/values-v22/values-v22.xml",
+            "outputFile": "com.xianyuzhushou.app-mergeDebugResources-33:/values-v22/values-v22.xml",
             "map": [
                 {
                     "source": "/Users/xiamuguizhi/.gradle/caches/8.14/transforms/76bbd2aef0f58b8c3b6d855fb8d011ff/transformed/appcompat-1.6.1/res/values-v22/values-v22.xml",

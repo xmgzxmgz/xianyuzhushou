@@ -40,4 +40,9 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.2'
     implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
+
+    // OCR: ML Kit 中文文本识别（on-device）
+    implementation 'com.google.mlkit:text-recognition-chinese:16.0.0'
+    // OCR Fallback: tess-two（需配合训练数据；此处作为可选备用引擎）
+    implementation 'com.rmtheis:tess-two:9.1.0'
 }

@@ -13,6 +13,12 @@ class AutomationManager(private val service: XianyuAccessibilityService) {
 
     private val TAG = "XyAuto"
     private var lastScrollMs: Long = 0L
+    // OCR管线
+    private val screenshot = com.xianyuzhushou.capture.ScreenshotManager(service)
+    private val preprocessor = com.xianyuzhushou.image.ImagePreprocessor()
+    private val ocr = com.xianyuzhushou.ocr.MlKitOcrEngine()
+    private val parser = com.xianyuzhushou.semantic.SemanticParser()
+    private val validator = com.xianyuzhushou.validator.Validator(service)
     private fun isInTaskPage(root: AccessibilityNodeInfo): Boolean {
         val titleHit = root.findAccessibilityNodeInfosByText("得骰子赚闲鱼币").isNullOrEmpty().not()
         val hasGo = root.findAccessibilityNodeInfosByText("去完成").isNullOrEmpty().not()
@@ -57,6 +63,10 @@ class AutomationManager(private val service: XianyuAccessibilityService) {
         val actions = collectActionButtons(root)
         if (actions.isNotEmpty()) {
             acted = routeTopAction(root, actions.first())
+        } else {
+            // 无可点击按钮时，尝试 OCR 识别右侧按钮文案
+            val ocrActed = performOcrActionOnce()
+            acted = acted || ocrActed
         }
 
         // 3) 仅在没有可执行任务且间隔足够时滚动一次，避免持续下滑
@@ -160,6 +170,8 @@ class AutomationManager(private val service: XianyuAccessibilityService) {
 
     private data class ActionItem(val node: AccessibilityNodeInfo, val actionText: String, val top: Int)
 
+    private data class OcrAction(val actionText: String, val top: Int, val centerX: Int, val centerY: Int, val title: String?)
+
     private fun collectActionButtons(root: AccessibilityNodeInfo): List<ActionItem> {
         val list = mutableListOf<ActionItem>()
         val rect = android.graphics.Rect()
@@ -205,6 +217,62 @@ class AutomationManager(private val service: XianyuAccessibilityService) {
             }
         }
         return list.sortedBy { it.top }
+    }
+
+    private fun performOcrActionOnce(): Boolean {
+        val (leftTile, rightTile) = screenshot.captureTiles()
+        val candidateBmp = rightTile ?: return false
+        val pre = preprocessor.preprocessForText(candidateBmp)
+        val texts = ocr.recognize(pre)
+        val cands = parser.parse(texts)
+        if (cands.isEmpty()) return false
+        val top = cands.first()
+        val cx = top.rect.centerX()
+        val cy = top.rect.centerY()
+        val okClick = clickAt(cx, cy)
+        if (!okClick) return false
+        sleepMedium()
+        val title = top.title ?: ""
+        when (top.type) {
+            com.xianyuzhushou.semantic.ActionCandidate.Type.CLAIM -> {
+                returnBack(1)
+                service.onRewardClaimed(detectRewardAmount(service.rootInActiveWindow ?: return true) ?: estimateCoinGain())
+                service.log("OCR领取奖励成功：$title")
+                return true
+            }
+            com.xianyuzhushou.semantic.ActionCandidate.Type.GO -> {
+                // 通用处理：浏览10秒并返回
+                handleBrowseForSeconds(service.rootInActiveWindow ?: return true, 10_000)
+                returnBack(1)
+                if (validator.checkCompletedOrClaimed()) {
+                    service.onRewardClaimed(detectRewardAmount(service.rootInActiveWindow ?: return true) ?: estimateCoinGain())
+                    service.log("OCR任务完成：$title")
+                } else {
+                    service.log("OCR完成校验未通过：$title，将继续常规流程")
+                }
+                return true
+            }
+        }
+    }
+
+    private fun clickAt(x: Int, y: Int): Boolean {
+        val path = android.graphics.Path().apply { moveTo(x.toFloat(), y.toFloat()) }
+        val stroke = android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, 50)
+        val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
+        var done = false
+        var result = false
+        service.dispatchGesture(gesture, object : android.accessibilityservice.AccessibilityService.GestureResultCallback() {
+            override fun onCompleted(gestureDescription: android.accessibilityservice.GestureDescription?) {
+                result = true; done = true
+            }
+            override fun onCancelled(gestureDescription: android.accessibilityservice.GestureDescription?) {
+                result = false; done = true
+            }
+        }, null)
+        // 简单等待完成回调
+        var waited = 0
+        while (!done && waited < 200) { SystemClock.sleep(5); waited += 5 }
+        return result
     }
 
     fun checkTaskCompleted(root: AccessibilityNodeInfo?): Boolean {

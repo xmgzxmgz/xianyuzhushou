@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.xianyuzhushou.app-mergeDebugResources-31:/values-small-v4/values-small-v4.xml",
+            "outputFile": "com.xianyuzhushou.app-mergeDebugResources-33:/values-small-v4/values-small-v4.xml",
             "map": [
                 {
                     "source": "/Users/xiamuguizhi/.gradle/caches/8.14/transforms/ce30d244ab6b8f37dfa615fbba1848d2/transformed/material-1.10.0/res/values-small-v4/values-small-v4.xml",
