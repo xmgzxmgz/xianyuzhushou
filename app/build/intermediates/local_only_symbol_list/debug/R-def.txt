@@ -1,0 +1,14 @@
+R_DEF: Internal format may change without notice
+local
+id btnOpenAccessibility
+id btnRow
+id btnStart
+id btnStop
+id scrollLog
+id tvCoin
+id tvLog
+id tvStatus
+layout activity_main
+string app_name
+string service_desc
+xml xianyuzhushou_accessibility_service
