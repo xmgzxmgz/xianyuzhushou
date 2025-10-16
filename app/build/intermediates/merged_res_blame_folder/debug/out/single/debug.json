@@ -4,8 +4,8 @@
         "source": "/Users/xiamuguizhi/.gradle/daemon/8.14/com.xianyuzhushou.app-main-35:/xml/xianyuzhushou_accessibility_service.xml"
     },
     {
-        "merged": "com.xianyuzhushou.app-merged_res-33:/xml_xianyuzhushou_accessibility_service.xml.flat",
-        "source": "com.xianyuzhushou.app-main-35:/xml/xianyuzhushou_accessibility_service.xml"
+        "merged": "com.xianyuzhushou.app-merged_res-33:/layout_overlay_log.xml.flat",
+        "source": "com.xianyuzhushou.app-main-35:/layout/overlay_log.xml"
     },
     {
         "merged": "/Users/xiamuguizhi/.gradle/daemon/8.14/com.xianyuzhushou.app-merged_res-33:/layout_activity_main.xml.flat",

@@ -3145,6 +3145,7 @@ id bounceBoth
 id bounceEnd
 id bounceStart
 id btnOpenAccessibility
+id btnOverlayClose
 id btnRow
 id btnStart
 id btnStop
@@ -3387,6 +3388,7 @@ id open_search_view_toolbar
 id open_search_view_toolbar_container
 id outline
 id outward
+id overlayScroll
 id overshoot
 id packed
 id parallax
@@ -3524,9 +3526,12 @@ id transition_position
 id transition_scene_layoutid_cache
 id transition_transform
 id triangle
-id tvCoin
+id tvDailyCoin
 id tvLog
+id tvOverlayLog
+id tvOverlayTitle
 id tvStatus
+id tvTotalCoin
 id unchecked
 id uniform
 id unlabeled
@@ -3740,6 +3745,7 @@ layout notification_template_custom_big
 layout notification_template_icon_group
 layout notification_template_part_chronometer
 layout notification_template_part_time
+layout overlay_log
 layout select_dialog_item_material
 layout select_dialog_multichoice_material
 layout select_dialog_singlechoice_material

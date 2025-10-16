@@ -15,7 +15,8 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 class MainActivity : AppCompatActivity() {
 
     private lateinit var tvStatus: TextView
-    private lateinit var tvCoin: TextView
+    private lateinit var tvDailyCoin: TextView
+    private lateinit var tvTotalCoin: TextView
     private lateinit var tvLog: TextView
     private lateinit var lbm: LocalBroadcastManager
     private val uiReceiver = object : BroadcastReceiver() {
@@ -26,9 +27,11 @@ class MainActivity : AppCompatActivity() {
                     tvStatus.text = "状态：$s"
                     appendLog(s)
                 }
-                ACTION_UPDATE_COIN -> {
-                    val c = intent.getIntExtra("coin", 0)
-                    tvCoin.text = "已领取闲鱼币：$c"
+                ACTION_UPDATE_STATS -> {
+                    val daily = intent.getIntExtra("daily", 0)
+                    val total = intent.getIntExtra("total", 0)
+                    tvDailyCoin.text = "今日闲鱼币：$daily"
+                    tvTotalCoin.text = "累计闲鱼币：$total"
                 }
             }
         }
@@ -39,13 +42,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(com.xianyuzhushou.R.layout.activity_main)
 
         tvStatus = findViewById(com.xianyuzhushou.R.id.tvStatus)
-        tvCoin = findViewById(com.xianyuzhushou.R.id.tvCoin)
+        tvDailyCoin = findViewById(com.xianyuzhushou.R.id.tvDailyCoin)
+        tvTotalCoin = findViewById(com.xianyuzhushou.R.id.tvTotalCoin)
         tvLog = findViewById(com.xianyuzhushou.R.id.tvLog)
         tvLog.movementMethod = ScrollingMovementMethod()
         lbm = LocalBroadcastManager.getInstance(this)
         lbm.registerReceiver(uiReceiver, IntentFilter().apply {
             addAction(ACTION_UPDATE_STATUS)
-            addAction(ACTION_UPDATE_COIN)
+            addAction(ACTION_UPDATE_STATS)
         })
 
         findViewById<Button>(com.xianyuzhushou.R.id.btnOpenAccessibility).setOnClickListener {
@@ -88,6 +92,6 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_START = "com.xianyuzhushou.ACTION_START"
         const val ACTION_STOP = "com.xianyuzhushou.ACTION_STOP"
         const val ACTION_UPDATE_STATUS = "com.xianyuzhushou.ACTION_UPDATE_STATUS"
-        const val ACTION_UPDATE_COIN = "com.xianyuzhushou.ACTION_UPDATE_COIN"
+        const val ACTION_UPDATE_STATS = "com.xianyuzhushou.ACTION_UPDATE_STATS"
     }
 }
