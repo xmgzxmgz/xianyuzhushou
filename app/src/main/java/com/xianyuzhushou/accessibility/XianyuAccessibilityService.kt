@@ -100,7 +100,7 @@ class XianyuAccessibilityService : AccessibilityService() {
         running = true
         overlay.resetClosedFlag()
         overlay.show()
-        log("运行中…请切到闲鱼任务页")
+        log("运行中…正在识别当前页面")
     }
 
     private fun stopAutomation() {

@@ -34,7 +34,7 @@ class OverlayController(private val context: Context) {
         }
 
         val dm = context.resources.displayMetrics
-        val width = (dm.widthPixels * 0.5).toInt() // 宽占屏幕一半
+        val width = dm.widthPixels // 顶部全宽
         val height = (dm.heightPixels * 0.25).toInt() // 高占屏幕四分之一
 
         val lp = WindowManager.LayoutParams(
@@ -46,9 +46,9 @@ class OverlayController(private val context: Context) {
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         )
-        lp.gravity = Gravity.TOP or Gravity.END
+        lp.gravity = Gravity.TOP or Gravity.START
         lp.y = 20
-        lp.x = 20
+        lp.x = 0
 
         wm.addView(v, lp)
         view = v
@@ -62,11 +62,9 @@ class OverlayController(private val context: Context) {
     fun resetClosedFlag() { closedByUser = false }
 
     fun log(msg: String) {
-        val v = view ?: return
+        if (view == null) return
         val line = "${timeFmt.format(Date())}  $msg"
         tvLog.append("\n$line")
-        tvLog.post {
-            scroll.fullScroll(View.FOCUS_DOWN)
-        }
+        tvLog.post { scroll.fullScroll(View.FOCUS_DOWN) }
     }
 }

@@ -12,6 +12,13 @@ import kotlin.random.Random
 class AutomationManager(private val service: XianyuAccessibilityService) {
 
     private val TAG = "XyAuto"
+    private var lastScrollMs: Long = 0L
+    private fun isInTaskPage(root: AccessibilityNodeInfo): Boolean {
+        val titleHit = root.findAccessibilityNodeInfosByText("得骰子赚闲鱼币").isNullOrEmpty().not()
+        val hasGo = root.findAccessibilityNodeInfosByText("去完成").isNullOrEmpty().not()
+        val hasClaim = root.findAccessibilityNodeInfosByText("领取奖励").isNullOrEmpty().not()
+        return titleHit || hasGo || hasClaim
+    }
 
     // 任务按钮关键词：可根据后续页面文案调整
     private val actionKeywords = listOf(
@@ -32,6 +39,12 @@ class AutomationManager(private val service: XianyuAccessibilityService) {
         if (root == null) return false
         var acted = false
 
+        // 不在任务页时仅提示，不滚动
+        if (!isInTaskPage(root)) {
+            service.log("运行中…请切到闲鱼任务页")
+            return false
+        }
+
         // 1) 优先尝试领取奖励
         if (clickByText(root, rewardKeywords)) {
             val gain = detectRewardAmount(root) ?: estimateCoinGain()
@@ -40,17 +53,21 @@ class AutomationManager(private val service: XianyuAccessibilityService) {
             sleepShort()
         }
 
-        // 2) 识别任务列表的“去完成”并按任务名称路由
-        val routed = routeTasksByName(root)
-        if (routed) {
-            acted = true
+        // 2) 构建任务操作队列（含“去完成/领取奖励”），按顶部优先执行一个
+        val actions = collectActionButtons(root)
+        if (actions.isNotEmpty()) {
+            acted = routeTopAction(root, actions.first())
         }
 
-        // 3) 尝试滚动任务列表
-        if (!acted) {
-            if (scrollForward(root)) {
-                acted = true
-                sleepShort()
+        // 3) 仅在没有可执行任务且间隔足够时滚动一次，避免持续下滑
+        if (!acted && actions.isEmpty()) {
+            val now = android.os.SystemClock.uptimeMillis()
+            if (now - lastScrollMs > 3000) {
+                if (scrollForward(root)) {
+                    lastScrollMs = now
+                    acted = true
+                    sleepShort()
+                }
             }
         }
 
@@ -79,67 +96,115 @@ class AutomationManager(private val service: XianyuAccessibilityService) {
         return false
     }
 
-    private fun routeTasksByName(root: AccessibilityNodeInfo): Boolean {
-        val goNodes = root.findAccessibilityNodeInfosByText("去完成")
-        if (goNodes.isNullOrEmpty()) return false
-        for (btn in goNodes) {
-            val taskName = nearbyText(btn) ?: continue
-            // 跳过不要完成的任务
-            if (taskName.contains("购买宝贝") || taskName.contains("发布一件新宝贝") || taskName.contains("收藏三个")) {
-                service.log("跳过任务：$taskName")
-                continue
+    private fun routeTopAction(root: AccessibilityNodeInfo, item: ActionItem): Boolean {
+        val taskName = nearbyText(item.node) ?: ""
+        if (taskName.contains("购买宝贝") || taskName.contains("发布一件新宝贝") || taskName.contains("收藏三个")) {
+            service.log("跳过任务：$taskName")
+            return false
+        }
+        service.log("即将执行：${item.actionText} / $taskName")
+        if (!performClickSafely(item.node)) return false
+        sleepMedium()
+        return when (item.actionText) {
+            "领取奖励" -> {
+                returnBack(1)
+                service.onRewardClaimed(detectRewardAmount(root) ?: estimateCoinGain())
+                service.log("已领取奖励：$taskName")
+                true
             }
-            service.log("即将执行任务：$taskName")
-            if (performClickSafely(btn)) {
-                sleepMedium()
-                // 路由到具体处理
+            "去完成" -> {
                 when {
                     taskName.contains("浏览指定频道好物") -> {
                         handleBrowseForSeconds(root, 20_000)
                         returnBack(1)
                         service.onRewardClaimed(detectRewardAmount(root) ?: estimateCoinGain())
                         service.log("任务已完成：$taskName")
-                        return true
+                        true
                     }
                     taskName.contains("蚂蚁庄园") || taskName.contains("蚂蚁森林") || taskName.contains("八八农场") || taskName.contains("水果") -> {
-                        // 跳转到支付宝后再返回
                         handleAlipayJumpAndReturn(root)
                         service.onRewardClaimed(detectRewardAmount(root) ?: estimateCoinGain())
                         service.log("任务已完成：$taskName")
-                        return true
+                        true
                     }
                     taskName.contains("搜一搜推荐商品") -> {
-                        // 进入后随意点一个商品
                         randomClickAnyItem(root)
                         handleBrowseForSeconds(root, 20_000)
                         returnBack(2)
                         service.onRewardClaimed(detectRewardAmount(root) ?: estimateCoinGain())
                         service.log("任务已完成：$taskName")
-                        return true
+                        true
                     }
                     taskName.contains("拼手气红包") -> {
-                        // 进入后点击“做任务参与”，随意点商品并浏览，返回三次
                         clickByText(root, listOf("做任务参与"))
                         sleepMedium()
                         randomClickAnyItem(root)
                         handleBrowseForSeconds(root, 20_000)
                         returnBack(3)
-                        service.onRewardClaimed(500) // 明确奖励 500 币
+                        service.onRewardClaimed(500)
                         service.log("任务已完成：$taskName，奖励500币")
-                        return true
+                        true
                     }
                     else -> {
-                        // 未覆盖的任务，退回到通用流程：点击后尝试滚动/等待再返回
                         handleBrowseForSeconds(root, 10_000)
                         returnBack(1)
                         service.onRewardClaimed(detectRewardAmount(root) ?: estimateCoinGain())
                         service.log("任务完成（通用）：$taskName")
-                        return true
+                        true
                     }
                 }
             }
+            else -> false
         }
-        return false
+    }
+
+    private data class ActionItem(val node: AccessibilityNodeInfo, val actionText: String, val top: Int)
+
+    private fun collectActionButtons(root: AccessibilityNodeInfo): List<ActionItem> {
+        val list = mutableListOf<ActionItem>()
+        val rect = android.graphics.Rect()
+        // 1) 文本匹配（优先）
+        val goNodes = root.findAccessibilityNodeInfosByText("去完成") ?: emptyList()
+        val claimNodes = root.findAccessibilityNodeInfosByText("领取奖励") ?: emptyList()
+        for (btn in goNodes) {
+            btn.getBoundsInScreen(rect)
+            list.add(ActionItem(btn, "去完成", rect.top))
+        }
+        for (btn in claimNodes) {
+            btn.getBoundsInScreen(rect)
+            list.add(ActionItem(btn, "领取奖励", rect.top))
+        }
+        // 2) 位置与结构启发：在右侧三分之一的可点击控件，且父容器左侧存在较长文本，视为“去完成”按钮
+        val dm = service.resources.displayMetrics
+        val rightThreshold = (dm.widthPixels * 0.66).toInt()
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.add(root)
+        while (stack.isNotEmpty()) {
+            val n = stack.removeFirst()
+            n.getBoundsInScreen(rect)
+            val txt = (n.text?.toString() ?: "") + (n.contentDescription?.toString() ?: "")
+            // 若文本明确匹配则已在上面收集
+            if (txt.contains("去完成") || txt.contains("领取奖励")) {
+                // 已处理
+            } else if (n.isClickable && rect.left >= rightThreshold) {
+                val p = n.parent
+                var longest = 0
+                if (p != null) {
+                    for (i in 0 until p.childCount) {
+                        val c = p.getChild(i)
+                        val ct = (c?.text?.toString() ?: "") + (c?.contentDescription?.toString() ?: "")
+                        if (ct.length > longest) longest = ct.length
+                    }
+                }
+                if (longest >= 6) {
+                    list.add(ActionItem(n, "去完成", rect.top))
+                }
+            }
+            for (i in 0 until n.childCount) {
+                n.getChild(i)?.let { stack.add(it) }
+            }
+        }
+        return list.sortedBy { it.top }
     }
 
     fun checkTaskCompleted(root: AccessibilityNodeInfo?): Boolean {
