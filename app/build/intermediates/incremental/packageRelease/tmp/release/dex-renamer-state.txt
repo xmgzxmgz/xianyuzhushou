@@ -1,0 +1,7 @@
+#Thu Oct 16 15:02:19 CST 2025
+base.0=/Users/xiamuguizhi/code/xianyuzhushou/app/build/intermediates/dex/release/mergeDexRelease/classes.dex
+base.1=/Users/xiamuguizhi/code/xianyuzhushou/app/build/intermediates/dex/release/mergeDexRelease/classes2.dex
+path.0=classes.dex
+path.1=classes2.dex
+renamed.0=classes.dex
+renamed.1=classes2.dex
