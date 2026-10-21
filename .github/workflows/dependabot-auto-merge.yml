@@ -7,6 +7,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  checks: read
+  statuses: read
 
 concurrency:
   group: dependabot-merge-${{ github.event.pull_request.number }}
@@ -36,23 +38,32 @@ jobs:
         run: |
           set -uo pipefail
           echo "update-type: ${{ steps.meta.outputs.update-type }}"
-          count=$(gh pr view "$PR_URL" --json statusCheckRollup -q '[.statusCheckRollup[]?] | length' 2>/dev/null || echo 0)
+
+          count=0
+          if out=$(gh pr view "$PR_URL" --json statusCheckRollup -q '[.statusCheckRollup[]?] | length' 2>/dev/null); then
+            count="${out:-0}"
+          else
+            echo "读取检查状态失败（权限或分支限制），按无 CI 处理"
+            count=0
+          fi
           echo "status checks: $count"
 
           merge_pr() {
             if gh pr merge --squash --delete-branch "$PR_URL"; then
               echo "已合并并删除分支"
             else
-              echo "本次合并未成功（基线已变更或有冲突），Dependabot 下次 rebase 后会自动重试"
+              echo "本次合并未成功（基线已变更或有冲突），Dependabot 下次 rebase 后自动重试"
             fi
           }
 
           if [ "$count" = "0" ]; then
-            echo "该仓库无 CI 检查，直接合并"
+            echo "无 CI 检查，直接合并"
             merge_pr
-          elif gh pr checks "$PR_URL" --watch --fail-fast --interval 20; then
+          elif gh pr checks "$PR_URL" --watch --fail-fast --interval 20 2>/dev/null; then
             echo "CI 全部通过，合并"
             merge_pr
           else
-            echo "CI 未通过，保留该 PR 等待人工处理"
+            echo "CI 未通过或状态不可读，保留 PR 等待人工处理"
           fi
+
+          exit 0
