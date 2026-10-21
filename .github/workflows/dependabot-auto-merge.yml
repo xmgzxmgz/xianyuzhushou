@@ -15,6 +15,7 @@ jobs:
       github.event.pull_request.state == 'open' &&
       github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Fetch Dependabot metadata
         id: meta
@@ -22,9 +23,23 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Enable auto-merge for non-major updates
+      - name: Merge non-major updates
         if: steps.meta.outputs.update-type != 'version-update:semver-major'
-        run: gh pr merge --auto --squash "$PR_URL"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -uo pipefail
+          echo "update-type: ${{ steps.meta.outputs.update-type }}"
+          count=$(gh pr view "$PR_URL" --json statusCheckRollup -q '[.statusCheckRollup[]?] | length')
+          echo "status checks: $count"
+          if [ "$count" = "0" ]; then
+            echo "无 CI 检查，直接合并"
+            gh pr merge --squash --delete-branch "$PR_URL"
+          elif gh pr checks "$PR_URL" --watch --fail-fast --interval 20; then
+            echo "检查全部通过，合并"
+            gh pr merge --squash --delete-branch "$PR_URL"
+          else
+            echo "检查未通过，保留 PR 等待人工处理"
+          fi
